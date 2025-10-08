@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据分析 - 环境数据监控系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        .filter-button {
+            transition: all 0.2s ease;
+        }
+        .filter-button.active {
+            background: #0ea5e9;
+            color: white;
+        }
+        .metric-checkbox:checked + label {
+            background: #dbeafe;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <!-- 导航栏 -->
+    <nav class="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-green-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white font-bold text-sm">EM</span>
+                        </div>
+                        <span class="text-xl font-bold text-gray-900">环境监控</span>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-gray-600 hover:text-blue-600 transition-colors">实时监控</a>
+                    <a href="analytics.html" class="text-blue-600 font-medium border-b-2 border-blue-600 pb-1">数据分析</a>
+                    <a href="alerts.html" class="text-gray-600 hover:text-blue-600 transition-colors">预警设置</a>
+                    <a href="reports.html" class="text-gray-600 hover:text-blue-600 transition-colors">报告中心</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="refreshData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        刷新数据
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 页面标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">数据分析中心</h1>
+            <p class="text-gray-600">深入分析环境数据趋势，发现数据背后的洞察</p>
+        </div>
+
+        <!-- 筛选控制面板 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 时间范围选择 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">时间范围</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="filter-button active px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium" data-range="24h">
+                            最近24小时
+                        </button>
+                        <button class="filter-button px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium" data-range="7d">
+                            最近7天
+                        </button>
+                        <button class="filter-button px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium" data-range="30d">
+                            最近30天
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 数据指标选择 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">数据指标</label>
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="temp-metric" class="metric-checkbox hidden" checked>
+                            <label for="temp-metric" class="flex items-center cursor-pointer px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium transition-colors">
+                                <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                                温度 (°C)
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="humidity-metric" class="metric-checkbox hidden" checked>
+                            <label for="humidity-metric" class="flex items-center cursor-pointer px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium transition-colors">
+                                <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                                湿度 (%)
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="pressure-metric" class="metric-checkbox hidden" checked>
+                            <label for="pressure-metric" class="flex items-center cursor-pointer px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium transition-colors">
+                                <div class="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                                气压 (hPa)
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="airquality-metric" class="metric-checkbox hidden" checked>
+                            <label for="airquality-metric" class="flex items-center cursor-pointer px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium transition-colors">
+                                <div class="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                                空气质量 (AQI)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 图表类型选择 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">图表类型</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="filter-button active px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium" data-chart="line">
+                            线图
+                        </button>
+                        <button class="filter-button px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium" data-chart="area">
+                            面积图
+                        </button>
+                        <button class="filter-button px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium" data-chart="bar">
+                            柱状图
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要图表区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- 主图表 -->
+            <div class="lg:col-span-3">
+                <div class="chart-container p-6 mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-semibold text-gray-900">数据趋势分析</h2>
+                        <div class="flex items-center space-x-4">
+                            <button onclick="exportChart()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                导出图表
+                            </button>
+                        </div>
+                    </div>
+                    <div id="main-chart" style="height: 500px;"></div>
+                </div>
+
+                <!-- 统计分析卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="text-sm font-medium text-gray-600">平均温度</div>
+                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900 mono" id="avg-temp">--</div>
+                        <div class="text-sm text-gray-500 mt-1">°C</div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="text-sm font-medium text-gray-600">平均湿度</div>
+                            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM7 3V1m0 18v2m8-10a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900 mono" id="avg-humidity">--</div>
+                        <div class="text-sm text-gray-500 mt-1">%</div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="text-sm font-medium text-gray-600">平均气压</div>
+                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900 mono" id="avg-pressure">--</div>
+                        <div class="text-sm text-gray-500 mt-1">hPa</div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="text-sm font-medium text-gray-600">平均AQI</div>
+                            <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900 mono" id="avg-aqi">--</div>
+                        <div class="text-sm text-gray-500 mt-1">AQI</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 侧边栏 -->
+            <div class="space-y-6">
+                <!-- 数据摘要 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">数据摘要</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">数据点数量</span>
+                            <span class="text-sm font-medium text-gray-900 mono" id="data-points">--</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">时间跨度</span>
+                            <span class="text-sm font-medium text-gray-900" id="time-span">--</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">数据完整性</span>
+                            <span class="text-sm font-medium text-gray-900" id="data-quality">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 预警统计 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">预警统计</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                            <span class="text-sm text-gray-700">正常范围</span>
+                            <span class="text-sm text-green-600 font-medium" id="normal-count">--</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                            <span class="text-sm text-gray-700">警告级别</span>
+                            <span class="text-sm text-yellow-600 font-medium" id="warning-count">--</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                            <span class="text-sm text-gray-700">危险级别</span>
+                            <span class="text-sm text-red-600 font-medium" id="danger-count">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 数据导出 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">数据导出</h3>
+                    <div class="space-y-3">
+                        <button onclick="exportData('csv')" class="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium">
+                            导出为 CSV
+                        </button>
+                        <button onclick="exportData('json')" class="w-full px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium">
+                            导出为 JSON
+                        </button>
+                        <button onclick="exportData('pdf')" class="w-full px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors text-sm font-medium">
+                            生成报告
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-sm text-gray-500">
+                <p>© 2025 环境数据监控系统. 基于 ThingSpeak 云平台构建</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 全局变量
+        let analyticsData = null;
+        let mainChart = null;
+        let currentTimeRange = '24h';
+        let selectedMetrics = ['temperature', 'humidity', 'pressure', 'airquality'];
+        let currentChartType = 'line';
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAnalytics();
+            setupEventListeners();
+        });
+
+        // 初始化分析页面
+        async function initializeAnalytics() {
+            try {
+                await fetchAnalyticsData();
+                initializeMainChart();
+                updateStatistics();
+                setupAnimations();
+            } catch (error) {
+                console.error('初始化分析页面失败:', error);
+                showError('数据加载失败，请刷新页面重试');
+            }
+        }
+
+        // 获取分析数据
+        async function fetchAnalyticsData() {
+            try {
+                const response = await fetch('https://api.thingspeak.com/channels/3092550/feeds.json?api_key=1JCH60ZZR69R58JN&results=1000');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                analyticsData = data;
+                return data;
+            } catch (error) {
+                console.error('获取分析数据失败:', error);
+                throw error;
+            }
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 时间范围选择
+            document.querySelectorAll('[data-range]').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('[data-range]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentTimeRange = this.dataset.range;
+                    updateMainChart();
+                });
+            });
+
+            // 图表类型选择
+            document.querySelectorAll('[data-chart]').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('[data-chart]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentChartType = this.dataset.chart;
+                    updateMainChart();
+                });
+            });
+
+            // 指标选择
+            document.querySelectorAll('.metric-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const metric = this.id.replace('-metric', '');
+                    if (this.checked) {
+                        if (!selectedMetrics.includes(metric)) {
+                            selectedMetrics.push(metric);
+                        }
+                    } else {
+                        selectedMetrics = selectedMetrics.filter(m => m !== metric);
+                    }
+                    updateMainChart();
+                });
+            });
+        }
+
+        // 初始化主图表
+        function initializeMainChart() {
+            const chartElement = document.getElementById('main-chart');
+            if (!chartElement) return;
+            
+            mainChart = echarts.init(chartElement);
+            updateMainChart();
+        }
+
+        // 更新主图表
+        function updateMainChart() {
+            if (!analyticsData || !analyticsData.feeds || !mainChart) return;
+            
+            let filteredData = filterDataByTimeRange(analyticsData.feeds, currentTimeRange);
+            
+            const times = filteredData.map(feed => {
+                const date = new Date(feed.created_at);
+                return currentTimeRange === '24h' ? 
+                    date.toLocaleTimeString('zh-CN') : 
+                    date.toLocaleDateString('zh-CN');
+            });
+            
+            const series = [];
+            const colors = {
+                temperature: '#0ea5e9',
+                humidity: '#059669',
+                pressure: '#8b5cf6',
+                airquality: '#f59e0b'
+            };
+            
+            const names = {
+                temperature: '温度 (°C)',
+                humidity: '湿度 (%)',
+                pressure: '气压 (hPa)',
+                airquality: '空气质量 (AQI)'
+            };
+            
+            selectedMetrics.forEach(metric => {
+                let fieldKey, yAxisIndex = 0;
+                switch (metric) {
+                    case 'temperature': fieldKey = 'field1'; break;
+                    case 'humidity': fieldKey = 'field2'; break;
+                    case 'pressure': fieldKey = 'field4'; yAxisIndex = 1; break;
+                    case 'airquality': fieldKey = 'field5'; yAxisIndex = 1; break;
+                }
+                
+                const data = filteredData.map(feed => parseFloat(feed[fieldKey]) || 0);
+                
+                series.push({
+                    name: names[metric],
+                    type: currentChartType === 'area' ? 'line' : currentChartType,
+                    data: data,
+                    smooth: true,
+                    yAxisIndex: yAxisIndex,
+                    lineStyle: {
+                        color: colors[metric],
+                        width: 2
+                    },
+                    itemStyle: {
+                        color: colors[metric]
+                    },
+                    areaStyle: currentChartType === 'area' ? {
+                        color: {
+                            type: 'linear',
+                            x: 0, y: 0, x2: 0, y2: 1,
+                            colorStops: [{
+                                offset: 0, color: colors[metric] + '40'
+                            }, {
+                                offset: 1, color: colors[metric] + '10'
+                            }]
+                        }
+                    } : null
+                });
+            });
+            
+            const option = {
+                title: {
+                    show: false
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: series.map(s => s.name),
+                    top: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: times,
+                    axisLabel: {
+                        rotate: currentTimeRange === '24h' ? 45 : 0,
+                        fontSize: 10
+                    }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '温度/湿度',
+                        position: 'left',
+                        axisLabel: {
+                            formatter: '{value}'
+                        }
+                    },
+                    {
+                        type: 'value',
+                        name: '气压/AQI',
+                        position: 'right',
+                        axisLabel: {
+                            formatter: '{value}'
+                        }
+                    }
+                ],
+                series: series,
+                animation: true,
+                animationDuration: 1000,
+                animationEasing: 'cubicOut'
+            };
+            
+            mainChart.setOption(option, true);
+        }
+
+        // 根据时间范围筛选数据
+        function filterDataByTimeRange(feeds, range) {
+            const now = new Date();
+            let cutoffTime;
+            
+            switch (range) {
+                case '24h':
+                    cutoffTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    break;
+                case '7d':
+                    cutoffTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    break;
+                case '30d':
+                    cutoffTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    break;
+                default:
+                    cutoffTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            }
+            
+            return feeds.filter(feed => new Date(feed.created_at) >= cutoffTime);
+        }
+
+        // 更新统计数据
+        function updateStatistics() {
+            if (!analyticsData || !analyticsData.feeds) return;
+            
+            const feeds = analyticsData.feeds;
+            const recentFeeds = feeds.slice(-100); // 最近100条数据
+            
+            // 计算平均值
+            const avgTemp = recentFeeds.reduce((sum, feed) => sum + (parseFloat(feed.field1) || 0), 0) / recentFeeds.length;
+            const avgHumidity = recentFeeds.reduce((sum, feed) => sum + (parseFloat(feed.field2) || 0), 0) / recentFeeds.length;
+            const avgPressure = recentFeeds.reduce((sum, feed) => sum + (parseFloat(feed.field4) || 0), 0) / recentFeeds.length;
+            const avgAqi = recentFeeds.reduce((sum, feed) => sum + (parseFloat(feed.field5) || 0), 0) / recentFeeds.length;
+            
+            document.getElementById('avg-temp').textContent = avgTemp.toFixed(1);
+            document.getElementById('avg-humidity').textContent = avgHumidity.toFixed(1);
+            document.getElementById('avg-pressure').textContent = avgPressure.toFixed(1);
+            document.getElementById('avg-aqi').textContent = avgAqi.toFixed(0);
+            
+            // 更新数据摘要
+            document.getElementById('data-points').textContent = feeds.length;
+            
+            if (feeds.length > 0) {
+                const firstTime = new Date(feeds[0].created_at);
+                const lastTime = new Date(feeds[feeds.length - 1].created_at);
+                const timeSpan = Math.round((lastTime - firstTime) / (1000 * 60 * 60 * 24));
+                document.getElementById('time-span').textContent = `${timeSpan} 天`;
+                
+                // 计算数据完整性
+                const validFeeds = feeds.filter(feed => 
+                    feed.field1 && feed.field2 && feed.field4 && feed.field5
+                ).length;
+                const dataQuality = Math.round((validFeeds / feeds.length) * 100);
+                document.getElementById('data-quality').textContent = `${dataQuality}%`;
+            }
+            
+            // 计算预警统计
+            let normalCount = 0, warningCount = 0, dangerCount = 0;
+            recentFeeds.forEach(feed => {
+                const temp = parseFloat(feed.field1) || 0;
+                const humidity = parseFloat(feed.field2) || 0;
+                const pressure = parseFloat(feed.field4) || 0;
+                const aqi = parseFloat(feed.field5) || 0;
+                
+                // 简化的预警判断
+                if (temp < 15 || temp > 35 || humidity < 30 || humidity > 80 || pressure < 980 || pressure > 1030 || aqi > 200) {
+                    dangerCount++;
+                } else if (temp < 18 || temp > 30 || humidity < 40 || humidity > 70 || pressure < 990 || pressure > 1020 || aqi > 150) {
+                    warningCount++;
+                } else {
+                    normalCount++;
+                }
+            });
+            
+            document.getElementById('normal-count').textContent = normalCount;
+            document.getElementById('warning-count').textContent = warningCount;
+            document.getElementById('danger-count').textContent = dangerCount;
+        }
+
+        // 刷新数据
+        async function refreshData() {
+            try {
+                await fetchAnalyticsData();
+                updateMainChart();
+                updateStatistics();
+                showSuccess('数据刷新成功');
+            } catch (error) {
+                console.error('刷新数据失败:', error);
+                showError('数据刷新失败');
+            }
+        }
+
+        // 导出数据
+        function exportData(format) {
+            if (!analyticsData || !analyticsData.feeds) {
+                showError('没有数据可导出');
+                return;
+            }
+            
+            const feeds = analyticsData.feeds;
+            
+            switch (format) {
+                case 'csv':
+                    exportCSV(feeds);
+                    break;
+                case 'json':
+                    exportJSON(feeds);
+                    break;
+                case 'pdf':
+                    showInfo('PDF报告功能开发中...');
+                    break;
+            }
+        }
+
+        // 导出CSV
+        function exportCSV(feeds) {
+            const headers = ['时间', '温度(°C)', '湿度(%)', '气压(hPa)', '空气质量(AQI)'];
+            const csvContent = [
+                headers.join(','),
+                ...feeds.map(feed => [
+                    feed.created_at,
+                    feed.field1 || '',
+                    feed.field2 || '',
+                    feed.field4 || '',
+                    feed.field5 || ''
+                ].join(','))
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `environmental_data_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            
+            showSuccess('CSV文件导出成功');
+        }
+
+        // 导出JSON
+        function exportJSON(feeds) {
+            const jsonContent = JSON.stringify(feeds, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `environmental_data_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showSuccess('JSON文件导出成功');
+        }
+
+        // 导出图表
+        function exportChart() {
+            if (!mainChart) {
+                showError('图表未准备好');
+                return;
+            }
+            
+            const url = mainChart.getDataURL({
+                type: 'png',
+                pixelRatio: 2,
+                backgroundColor: '#fff'
+            });
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `environmental_chart_${new Date().toISOString().split('T')[0]}.png`;
+            link.click();
+            
+            showSuccess('图表导出成功');
+        }
+
+        // 设置动画
+        function setupAnimations() {
+            anime({
+                targets: '.chart-container, .bg-white',
+                translateY: [30, 0],
+                opacity: [0, 1],
+                delay: anime.stagger(100),
+                duration: 800,
+                easing: 'easeOutQuart'
+            });
+        }
+
+        // 显示成功消息
+        function showSuccess(message) {
+            const div = document.createElement('div');
+            div.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            div.textContent = message;
+            document.body.appendChild(div);
+            
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // 显示错误消息
+        function showError(message) {
+            const div = document.createElement('div');
+            div.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            div.textContent = message;
+            document.body.appendChild(div);
+            
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // 显示信息消息
+        function showInfo(message) {
+            const div = document.createElement('div');
+            div.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            div.textContent = message;
+            document.body.appendChild(div);
+            
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // 响应式处理
+        window.addEventListener('resize', () => {
+            if (mainChart) {
+                mainChart.resize();
+            }
+        });
+    </script>
+</body>
+</html>

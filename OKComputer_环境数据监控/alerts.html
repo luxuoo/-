@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预警设置 - 环境数据监控系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .slider-container {
+            position: relative;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            margin: 20px 0;
+        }
+        .slider-track {
+            height: 100%;
+            background: linear-gradient(to right, #ef4444, #f59e0b, #059669);
+            border-radius: 3px;
+            position: relative;
+        }
+        .slider-thumb {
+            position: absolute;
+            top: -8px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border: 3px solid #0ea5e9;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        .slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .alert-history-item {
+            transition: all 0.3s ease;
+        }
+        .alert-history-item:hover {
+            transform: translateX(4px);
+            background: #f8fafc;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider {
+            background-color: #0ea5e9;
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <!-- 导航栏 -->
+    <nav class="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-green-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white font-bold text-sm">EM</span>
+                        </div>
+                        <span class="text-xl font-bold text-gray-900">环境监控</span>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-gray-600 hover:text-blue-600 transition-colors">实时监控</a>
+                    <a href="analytics.html" class="text-gray-600 hover:text-blue-600 transition-colors">数据分析</a>
+                    <a href="alerts.html" class="text-blue-600 font-medium border-b-2 border-blue-600 pb-1">预警设置</a>
+                    <a href="reports.html" class="text-gray-600 hover:text-blue-600 transition-colors">报告中心</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="testAlert()" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                        测试预警
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 页面标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">预警系统设置</h1>
+            <p class="text-gray-600">配置环境数据预警规则，及时发现异常情况</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 预警规则设置 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 温度预警设置 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">温度预警</h3>
+                                <p class="text-sm text-gray-500">设置温度上下限预警阈值</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="temp-alert-enabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最低温度</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="range" id="temp-min" min="-10" max="40" value="15" class="flex-1">
+                                <span class="text-sm font-medium text-gray-900 w-12" id="temp-min-value">15°C</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最高温度</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="range" id="temp-max" min="-10" max="40" value="35" class="flex-1">
+                                <span class="text-sm font-medium text-gray-900 w-12" id="temp-max-value">35°C</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                        <div class="text-sm text-blue-800">
+                            <strong>当前设置:</strong> 温度低于 <span id="temp-min-display">15</span>°C 或高于 <span id="temp-max-display">35</span>°C 时触发预警
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 湿度预警设置 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM7 3V1m0 18v2m8-10a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">湿度预警</h3>
+                                <p class="text-sm text-gray-500">设置湿度上下限预警阈值</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="humidity-alert-enabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最低湿度</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="range" id="humidity-min" min="0" max="100" value="30" class="flex-1">
+                                <span class="text-sm font-medium text-gray-900 w-12" id="humidity-min-value">30%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最高湿度</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="range" id="humidity-max" min="0" max="100" value="80" class="flex-1">
+                                <span class="text-sm font-medium text-gray-900 w-12" id="humidity-max-value">80%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-green-50 rounded-lg">
+                        <div class="text-sm text-green-800">
+                            <strong>当前设置:</strong> 湿度低于 <span id="humidity-min-display">30</span>% 或高于 <span id="humidity-max-display">80</span>% 时触发预警
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 气压预警设置 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">气压预警</h3>
+                                <p class="text-sm text-gray-500">设置气压上下限预警阈值</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pressure-alert-enabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最低气压</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="range" id="pressure-min" min="900" max="1100" value="980" class="flex-1">
+                                <span class="text-sm font-medium text-gray-900 w-16" id="pressure-min-value">980hPa</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最高气压</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="range" id="pressure-max" min="900" max="1100" value="1030" class="flex-1">
+                                <span class="text-sm font-medium text-gray-900 w-16" id="pressure-max-value">1030hPa</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-purple-50 rounded-lg">
+                        <div class="text-sm text-purple-800">
+                            <strong>当前设置:</strong> 气压低于 <span id="pressure-min-display">980</span>hPa 或高于 <span id="pressure-max-display">1030</span>hPa 时触发预警
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 空气质量预警设置 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">空气质量预警</h3>
+                                <p class="text-sm text-gray-500">设置空气质量指数预警阈值</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="airquality-alert-enabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">AQI 预警阈值</label>
+                        <div class="flex items-center space-x-4">
+                            <input type="range" id="airquality-max" min="0" max="500" value="200" class="flex-1">
+                            <span class="text-sm font-medium text-gray-900 w-16" id="airquality-max-value">200AQI</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-orange-50 rounded-lg">
+                        <div class="text-sm text-orange-800">
+                            <strong>当前设置:</strong> 空气质量指数高于 <span id="airquality-max-display">200</span> AQI 时触发预警
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 侧边栏 -->
+            <div class="space-y-6">
+                <!-- 通知设置 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">通知设置</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">声音提醒</div>
+                                <div class="text-xs text-gray-500">预警触发时播放声音</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="sound-notification" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">弹窗提醒</div>
+                                <div class="text-xs text-gray-500">显示预警弹窗通知</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="popup-notification" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">邮件通知</div>
+                                <div class="text-xs text-gray-500">发送邮件预警通知</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="email-notification">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 pt-4 border-t border-gray-200">
+                        <button onclick="saveSettings()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            保存设置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 预警统计 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">预警统计</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">今日预警</span>
+                            <span class="text-sm font-medium text-gray-900" id="today-alerts">0</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">本周预警</span>
+                            <span class="text-sm font-medium text-gray-900" id="week-alerts">0</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">本月预警</span>
+                            <span class="text-sm font-medium text-gray-900" id="month-alerts">0</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">总预警数</span>
+                            <span class="text-sm font-medium text-gray-900" id="total-alerts">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 预警历史 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">最近预警</h3>
+                        <button onclick="clearAlertHistory()" class="text-sm text-gray-500 hover:text-gray-700">
+                            清空历史
+                        </button>
+                    </div>
+                    <div class="space-y-3 max-h-64 overflow-y-auto" id="alert-history">
+                        <div class="text-sm text-gray-500 text-center py-8">
+                            暂无预警记录
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-sm text-gray-500">
+                <p>© 2025 环境数据监控系统. 基于 ThingSpeak 云平台构建</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 预警设置数据
+        let alertSettings = {
+            temperature: { min: 15, max: 35, enabled: true },
+            humidity: { min: 30, max: 80, enabled: true },
+            pressure: { min: 980, max: 1030, enabled: true },
+            airquality: { max: 200, enabled: true }
+        };
+
+        let notificationSettings = {
+            sound: true,
+            popup: true,
+            email: false
+        };
+
+        let alertHistory = [];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
+            setupEventListeners();
+            setupAnimations();
+            updateDisplays();
+        });
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 温度滑块
+            document.getElementById('temp-min').addEventListener('input', function() {
+                alertSettings.temperature.min = parseInt(this.value);
+                document.getElementById('temp-min-value').textContent = this.value + '°C';
+                document.getElementById('temp-min-display').textContent = this.value;
+            });
+
+            document.getElementById('temp-max').addEventListener('input', function() {
+                alertSettings.temperature.max = parseInt(this.value);
+                document.getElementById('temp-max-value').textContent = this.value + '°C';
+                document.getElementById('temp-max-display').textContent = this.value;
+            });
+
+            // 湿度滑块
+            document.getElementById('humidity-min').addEventListener('input', function() {
+                alertSettings.humidity.min = parseInt(this.value);
+                document.getElementById('humidity-min-value').textContent = this.value + '%';
+                document.getElementById('humidity-min-display').textContent = this.value;
+            });
+
+            document.getElementById('humidity-max').addEventListener('input', function() {
+                alertSettings.humidity.max = parseInt(this.value);
+                document.getElementById('humidity-max-value').textContent = this.value + '%';
+                document.getElementById('humidity-max-display').textContent = this.value;
+            });
+
+            // 气压滑块
+            document.getElementById('pressure-min').addEventListener('input', function() {
+                alertSettings.pressure.min = parseInt(this.value);
+                document.getElementById('pressure-min-value').textContent = this.value + 'hPa';
+                document.getElementById('pressure-min-display').textContent = this.value;
+            });
+
+            document.getElementById('pressure-max').addEventListener('input', function() {
+                alertSettings.pressure.max = parseInt(this.value);
+                document.getElementById('pressure-max-value').textContent = this.value + 'hPa';
+                document.getElementById('pressure-max-display').textContent = this.value;
+            });
+
+            // 空气质量滑块
+            document.getElementById('airquality-max').addEventListener('input', function() {
+                alertSettings.airquality.max = parseInt(this.value);
+                document.getElementById('airquality-max-value').textContent = this.value + 'AQI';
+                document.getElementById('airquality-max-display').textContent = this.value;
+            });
+
+            // 启用/禁用开关
+            document.getElementById('temp-alert-enabled').addEventListener('change', function() {
+                alertSettings.temperature.enabled = this.checked;
+            });
+
+            document.getElementById('humidity-alert-enabled').addEventListener('change', function() {
+                alertSettings.humidity.enabled = this.checked;
+            });
+
+            document.getElementById('pressure-alert-enabled').addEventListener('change', function() {
+                alertSettings.pressure.enabled = this.checked;
+            });
+
+            document.getElementById('airquality-alert-enabled').addEventListener('change', function() {
+                alertSettings.airquality.enabled = this.checked;
+            });
+
+            // 通知设置
+            document.getElementById('sound-notification').addEventListener('change', function() {
+                notificationSettings.sound = this.checked;
+            });
+
+            document.getElementById('popup-notification').addEventListener('change', function() {
+                notificationSettings.popup = this.checked;
+            });
+
+            document.getElementById('email-notification').addEventListener('change', function() {
+                notificationSettings.email = this.checked;
+            });
+        }
+
+        // 更新显示
+        function updateDisplays() {
+            // 温度显示
+            document.getElementById('temp-min').value = alertSettings.temperature.min;
+            document.getElementById('temp-min-value').textContent = alertSettings.temperature.min + '°C';
+            document.getElementById('temp-min-display').textContent = alertSettings.temperature.min;
+
+            document.getElementById('temp-max').value = alertSettings.temperature.max;
+            document.getElementById('temp-max-value').textContent = alertSettings.temperature.max + '°C';
+            document.getElementById('temp-max-display').textContent = alertSettings.temperature.max;
+
+            // 湿度显示
+            document.getElementById('humidity-min').value = alertSettings.humidity.min;
+            document.getElementById('humidity-min-value').textContent = alertSettings.humidity.min + '%';
+            document.getElementById('humidity-min-display').textContent = alertSettings.humidity.min;
+
+            document.getElementById('humidity-max').value = alertSettings.humidity.max;
+            document.getElementById('humidity-max-value').textContent = alertSettings.humidity.max + '%';
+            document.getElementById('humidity-max-display').textContent = alertSettings.humidity.max;
+
+            // 气压显示
+            document.getElementById('pressure-min').value = alertSettings.pressure.min;
+            document.getElementById('pressure-min-value').textContent = alertSettings.pressure.min + 'hPa';
+            document.getElementById('pressure-min-display').textContent = alertSettings.pressure.min;
+
+            document.getElementById('pressure-max').value = alertSettings.pressure.max;
+            document.getElementById('pressure-max-value').textContent = alertSettings.pressure.max + 'hPa';
+            document.getElementById('pressure-max-display').textContent = alertSettings.pressure.max;
+
+            // 空气质量显示
+            document.getElementById('airquality-max').value = alertSettings.airquality.max;
+            document.getElementById('airquality-max-value').textContent = alertSettings.airquality.max + 'AQI';
+            document.getElementById('airquality-max-display').textContent = alertSettings.airquality.max;
+        }
+
+        // 保存设置
+        function saveSettings() {
+            localStorage.setItem('alertSettings', JSON.stringify(alertSettings));
+            localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+            localStorage.setItem('alertHistory', JSON.stringify(alertHistory));
+            
+            showSuccess('设置保存成功');
+            
+            // 保存动画
+            anime({
+                targets: 'button',
+                scale: [1, 0.95, 1],
+                duration: 200,
+                easing: 'easeInOutQuad'
+            });
+        }
+
+        // 加载设置
+        function loadSettings() {
+            const savedAlertSettings = localStorage.getItem('alertSettings');
+            const savedNotificationSettings = localStorage.getItem('notificationSettings');
+            const savedAlertHistory = localStorage.getItem('alertHistory');
+            
+            if (savedAlertSettings) {
+                alertSettings = { ...alertSettings, ...JSON.parse(savedAlertSettings) };
+            }
+            
+            if (savedNotificationSettings) {
+                notificationSettings = { ...notificationSettings, ...JSON.parse(savedNotificationSettings) };
+            }
+            
+            if (savedAlertHistory) {
+                alertHistory = JSON.parse(savedAlertHistory);
+                updateAlertHistoryDisplay();
+            }
+            
+            // 更新通知设置UI
+            document.getElementById('sound-notification').checked = notificationSettings.sound;
+            document.getElementById('popup-notification').checked = notificationSettings.popup;
+            document.getElementById('email-notification').checked = notificationSettings.email;
+            
+            // 更新启用状态UI
+            document.getElementById('temp-alert-enabled').checked = alertSettings.temperature.enabled;
+            document.getElementById('humidity-alert-enabled').checked = alertSettings.humidity.enabled;
+            document.getElementById('pressure-alert-enabled').checked = alertSettings.pressure.enabled;
+            document.getElementById('airquality-alert-enabled').checked = alertSettings.airquality.enabled;
+        }
+
+        // 测试预警
+        function testAlert() {
+            const testAlert = {
+                id: Date.now(),
+                type: 'temperature',
+                message: '测试预警：温度异常 - 当前值: 38.5°C',
+                timestamp: new Date().toISOString(),
+                severity: 'warning'
+            };
+            
+            addAlertToHistory(testAlert);
+            showAlert(testAlert);
+            showSuccess('测试预警已触发');
+        }
+
+        // 显示预警
+        function showAlert(alert) {
+            if (notificationSettings.sound) {
+                playAlertSound();
+            }
+            
+            if (notificationSettings.popup) {
+                showAlertPopup(alert);
+            }
+        }
+
+        // 播放预警声音
+        function playAlertSound() {
+            // 创建简单的预警音
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        }
+
+        // 显示预警弹窗
+        function showAlertPopup(alert) {
+            const popup = document.createElement('div');
+            popup.className = 'fixed top-4 right-4 bg-white border-l-4 border-yellow-400 p-4 rounded-lg shadow-lg z-50 max-w-sm';
+            popup.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-gray-900">环境预警</h4>
+                        <p class="text-sm text-gray-600 mt-1">${alert.message}</p>
+                        <p class="text-xs text-gray-500 mt-2">${new Date(alert.timestamp).toLocaleString('zh-CN')}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(popup);
+            
+            // 自动关闭
+            setTimeout(() => {
+                if (popup.parentElement) {
+                    popup.remove();
+                }
+            }, 5000);
+        }
+
+        // 添加预警到历史记录
+        function addAlertToHistory(alert) {
+            alertHistory.unshift(alert);
+            if (alertHistory.length > 50) {
+                alertHistory = alertHistory.slice(0, 50);
+            }
+            updateAlertHistoryDisplay();
+            updateAlertStatistics();
+            saveSettings();
+        }
+
+        // 更新预警历史显示
+        function updateAlertHistoryDisplay() {
+            const container = document.getElementById('alert-history');
+            
+            if (alertHistory.length === 0) {
+                container.innerHTML = '<div class="text-sm text-gray-500 text-center py-8">暂无预警记录</div>';
+                return;
+            }
+            
+            container.innerHTML = alertHistory.slice(0, 10).map(alert => {
+                const severityColors = {
+                    info: 'bg-blue-50 text-blue-800 border-blue-200',
+                    warning: 'bg-yellow-50 text-yellow-800 border-yellow-200',
+                    danger: 'bg-red-50 text-red-800 border-red-200'
+                };
+                
+                const severityIcons = {
+                    info: 'text-blue-500',
+                    warning: 'text-yellow-500',
+                    danger: 'text-red-500'
+                };
+                
+                return `
+                    <div class="alert-history-item p-3 border-l-4 ${severityColors[alert.severity]} rounded-r-lg">
+                        <div class="flex items-start space-x-2">
+                            <svg class="w-4 h-4 ${severityIcons[alert.severity]} mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium">${alert.message}</p>
+                                <p class="text-xs text-gray-500 mt-1">${new Date(alert.timestamp).toLocaleString('zh-CN')}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 更新预警统计
+        function updateAlertStatistics() {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const thisWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            
+            const todayAlerts = alertHistory.filter(alert => new Date(alert.timestamp) >= today).length;
+            const weekAlerts = alertHistory.filter(alert => new Date(alert.timestamp) >= thisWeek).length;
+            const monthAlerts = alertHistory.filter(alert => new Date(alert.timestamp) >= thisMonth).length;
+            
+            document.getElementById('today-alerts').textContent = todayAlerts;
+            document.getElementById('week-alerts').textContent = weekAlerts;
+            document.getElementById('month-alerts').textContent = monthAlerts;
+            document.getElementById('total-alerts').textContent = alertHistory.length;
+        }
+
+        // 清空预警历史
+        function clearAlertHistory() {
+            if (confirm('确定要清空所有预警历史记录吗？')) {
+                alertHistory = [];
+                updateAlertHistoryDisplay();
+                updateAlertStatistics();
+                saveSettings();
+                showSuccess('预警历史已清空');
+            }
+        }
+
+        // 设置动画
+        function setupAnimations() {
+            anime({
+                targets: '.bg-white',
+                translateY: [30, 0],
+                opacity: [0, 1],
+                delay: anime.stagger(100),
+                duration: 800,
+                easing: 'easeOutQuart'
+            });
+        }
+
+        // 显示成功消息
+        function showSuccess(message) {
+            const div = document.createElement('div');
+            div.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            div.textContent = message;
+            document.body.appendChild(div);
+            
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // 显示错误消息
+        function showError(message) {
+            const div = document.createElement('div');
+            div.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            div.textContent = message;
+            document.body.appendChild(div);
+            
+            setTimeout(() => div.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
